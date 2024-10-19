@@ -62,9 +62,9 @@ export function DropboxGalleryComponent() {
     try {
       setLoading(true)
       let imageFiles = [] as files.FileMetadata[]
+      let metaCursor = null;
       while (true) {
         let response = null;
-        const metaCursor = null;
         if (metaCursor === null) {
           response = await dbx.filesListFolder({
             path: process.env.NEXT_PUBLIC_DROPBOX_FOLDER_PATH ?? '',
@@ -82,6 +82,8 @@ export function DropboxGalleryComponent() {
         if (!response.result.has_more) {
           break
         }
+
+        metaCursor = response.result.cursor
       }
       imageFiles.sort((a, b) => a.client_modified > b.client_modified ? -1 : 1)
       imagesMetadataRef.current = imageFiles
