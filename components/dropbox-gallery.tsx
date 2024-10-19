@@ -139,6 +139,7 @@ export function DropboxGalleryComponent() {
                     loadImagesLazy()
                   }
                 }}
+                onClick={() => window.open(image.url, '_blank')}
               />
             </div>
           </div>
