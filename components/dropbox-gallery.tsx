@@ -19,7 +19,7 @@ export function DropboxGalleryComponent() {
   const dbx = new Dropbox({ accessToken: DROPBOX_ACCESS_TOKEN })
   
   const limit = 3
-  let imagesMetadata = [] as files.FileMetadata[]
+  const imagesMetadataRef = useRef([] as files.FileMetadata[])
   const [start, setStart] = useState(0)
 
   const loadImagesLazy = useCallback(async () => {
@@ -28,17 +28,17 @@ export function DropboxGalleryComponent() {
       return
     }
 
-    if (imagesMetadata.length === 0) {
+    if (imagesMetadataRef.current.length === 0) {
       console.log("loadImagesMetadata")
       await loadImagesMetadata()
     }
 
     try {
-      console.log("imagesMetadata", imagesMetadata)
-      const imagesMetadataCut = imagesMetadata.slice(start, start + limit)
+      console.log("imagesMetadata", imagesMetadataRef.current)
+      const imagesMetadataCut = imagesMetadataRef.current.slice(start, start + limit)
       setStart(start + limit)
       
-      console.log(`start: ${start}, limit: ${limit}, imagesMetadataCut: ${imagesMetadataCut.length}, total: ${imagesMetadata.length}`)
+      console.log(`start: ${start}, limit: ${limit}, imagesMetadataCut: ${imagesMetadataCut.length}, total: ${imagesMetadataRef.current.length}`)
 
       const imageUrls = await Promise.all(
         imagesMetadataCut.map(async (file) => {
@@ -49,7 +49,7 @@ export function DropboxGalleryComponent() {
         })
       )
       setImages(prevImages => [...prevImages, ...imageUrls])
-      setHasMore(imagesMetadata.length > start)
+      setHasMore(imagesMetadataRef.current.length > start)
     } catch (err) {
       setError('Error loading images. Please try again.')
       console.error('Error loading images:', err)
@@ -84,18 +84,22 @@ export function DropboxGalleryComponent() {
         }
       }
       imageFiles.sort((a, b) => a.client_modified > b.client_modified ? -1 : 1)
-      imagesMetadata = imageFiles
+      imagesMetadataRef.current = imageFiles
     } catch (err) {
       setError('Error loading images. Please try again.')
       console.error('Error loading images:', err)
     } finally {
       setLoading(false)
     }
-  }, [dbx, loadImagesLazy])
+  }, [dbx])
 
+  const initialized = useRef(false)
   useEffect(() => {
-    loadImagesLazy()
-  }, [])
+    if (!initialized.current) {
+      loadImagesLazy()
+      initialized.current = true
+    }
+  })
 
   if (error) {
     return (
