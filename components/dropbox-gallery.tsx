@@ -67,7 +67,7 @@ export function DropboxGalleryComponent() {
         const metaCursor = null;
         if (metaCursor === null) {
           response = await dbx.filesListFolder({
-            path: '', // Replace with your Dropbox folder path
+            path: process.env.NEXT_PUBLIC_DROPBOX_FOLDER_PATH ?? '',
             limit: 20,
           })
         } else {
