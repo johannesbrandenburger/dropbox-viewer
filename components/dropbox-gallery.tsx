@@ -16,11 +16,10 @@ export function DropboxGalleryComponent() {
   const [error, setError] = useState(null as string | null)
   const [hasMore, setHasMore] = useState(true)
 
-  const observer = useRef() as React.MutableRefObject<IntersectionObserver | null>
   const dbx = new Dropbox({ accessToken: DROPBOX_ACCESS_TOKEN })
   
   const limit = 3
-  const [imagesMetadata, setImagesMetadata] = useState([] as files.FileMetadata[])
+  let imagesMetadata = [] as files.FileMetadata[]
   const [start, setStart] = useState(0)
 
   const loadImagesLazy = useCallback(async () => {
@@ -30,12 +29,15 @@ export function DropboxGalleryComponent() {
     }
 
     if (imagesMetadata.length === 0) {
+      console.log("loadImagesMetadata")
       await loadImagesMetadata()
     }
 
     try {
+      console.log("imagesMetadata", imagesMetadata)
       const imagesMetadataCut = imagesMetadata.slice(start, start + limit)
       setStart(start + limit)
+      
       console.log(`start: ${start}, limit: ${limit}, imagesMetadataCut: ${imagesMetadataCut.length}, total: ${imagesMetadata.length}`)
 
       const imageUrls = await Promise.all(
@@ -82,7 +84,7 @@ export function DropboxGalleryComponent() {
         }
       }
       imageFiles.sort((a, b) => a.client_modified > b.client_modified ? -1 : 1)
-      setImagesMetadata(imageFiles)
+      imagesMetadata = imageFiles
     } catch (err) {
       setError('Error loading images. Please try again.')
       console.error('Error loading images:', err)
@@ -94,18 +96,6 @@ export function DropboxGalleryComponent() {
   useEffect(() => {
     loadImagesLazy()
   }, [])
-
-  const lastImageRef = useCallback((node: Element) => {
-    if (loading) return
-    if (observer.current) observer.current.disconnect()
-    observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore) {
-        console.log("loadImagesLazy triggered by observer");
-        loadImagesLazy()
-      }
-    })
-    if (node) observer.current.observe(node)
-  }, [loading, hasMore, loadImagesLazy])
 
   if (error) {
     return (
@@ -129,7 +119,6 @@ export function DropboxGalleryComponent() {
         {images.map((image, index) => (
           <div
             key={image.name}
-            ref={index === images.length - 1 ? lastImageRef : null}
             className="w-full"
           >
             <div className="relative w-full">
@@ -140,6 +129,13 @@ export function DropboxGalleryComponent() {
                 height={360}
                 layout="responsive"
                 className="rounded-lg shadow-lg"
+                onLoad={() => {
+                  console.log(`Loading image ${index}...`);
+                  if (index === images.length - 1) {
+                    console.log(`Loading more images...`)
+                    loadImagesLazy()
+                  }
+                }}
               />
             </div>
           </div>
