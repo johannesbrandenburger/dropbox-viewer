@@ -86,7 +86,7 @@ export function DropboxGalleryComponent() {
             await handleApiError(err, () => dbx?.filesGetTemporaryLink({ path: file.path_lower ?? '' }))
           }
         })
-      )
+      ) as { url: string, name: string }[]
 
       setImages(prevImages => [...prevImages, ...imageUrls])
       setHasMore(imagesMetadataRef.current.length > start)
