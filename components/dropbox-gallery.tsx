@@ -7,16 +7,20 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 
-// Replace with your Dropbox access token
-const DROPBOX_ACCESS_TOKEN = process.env.NEXT_PUBLIC_DROPBOX_ACCESS_TOKEN
-
 export function DropboxGalleryComponent() {
   const [images, setImages] = useState([] as { url: string, name: string }[])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null as string | null)
   const [hasMore, setHasMore] = useState(true)
 
-  const dbx = new Dropbox({ accessToken: DROPBOX_ACCESS_TOKEN })
+  // curl https://api.dropbox.com/oauth2/token \
+  //   -d grant_type=refresh_token \
+  //   -d refresh_token=<REFRESH_TOKEN> \
+  //   -d client_id=<APP_KEY> \
+  //   -d client_secret=<APP_SECRET>
+
+
+  let dbx = useRef(null as Dropbox | null).current
   
   const limit = 3
   const imagesMetadataRef = useRef([] as files.FileMetadata[])
@@ -42,8 +46,11 @@ export function DropboxGalleryComponent() {
 
       const imageUrls = await Promise.all(
         imagesMetadataCut.map(async (file) => {
-          const response = await dbx.filesGetTemporaryLink({ path: file.path_lower ?? '' })
+          const response = await dbx?.filesGetTemporaryLink({ path: file.path_lower ?? '' })
           console.log("response", response);
+          if (!response) {
+            throw new Error('Failed to get temporary link')
+          }
           const result = response.result
           return { url: result.link, name: file.name }
         })
@@ -63,6 +70,28 @@ export function DropboxGalleryComponent() {
       setLoading(true)
       let imageFiles = [] as files.FileMetadata[]
       let metaCursor = null;
+
+      // get a access token by a refresh token
+      if (!dbx) {
+        const response = await fetch('https://api.dropbox.com/oauth2/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: process.env.NEXT_PUBLIC_DROPBOX_REFRESH_TOKEN ?? '',
+            client_id: process.env.NEXT_PUBLIC_DROPBOX_APP_KEY ?? '',
+            client_secret: process.env.NEXT_PUBLIC_DROPBOX_APP_SECRET ?? '',
+          }),
+        })
+        const data = await response.json()
+        console.log("data", data)
+        const accessToken = data.access_token
+        console.log("accessToken", accessToken)
+        dbx = new Dropbox({ accessToken })
+      }
+
       while (true) {
         let response = null;
         if (metaCursor === null) {
