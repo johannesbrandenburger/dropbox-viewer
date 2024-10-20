@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
-import { Dropbox, files } from 'dropbox'
+import { Dropbox, DropboxResponseError, files } from 'dropbox'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -91,7 +91,8 @@ export function DropboxGalleryComponent() {
       setImages(prevImages => [...prevImages, ...imageUrls])
       setHasMore(imagesMetadataRef.current.length > start)
     } catch (err) {
-      setError('Error loading images. Please try again.')
+      const errorMsg = err instanceof DropboxResponseError && err.error ? JSON.parse(err.error)['.tag'] : 'Unknown error'
+      setError(`Error loading images. Please try again. (${errorMsg})`)
       console.error('Error loading images:', err)
     } finally {
       setLoading(false)
@@ -133,7 +134,8 @@ export function DropboxGalleryComponent() {
       imageFiles.sort((a, b) => a.client_modified > b.client_modified ? -1 : 1)
       imagesMetadataRef.current = imageFiles
     } catch (err) {
-      setError('Error loading images. Please try again.')
+      const errorMsg = err instanceof DropboxResponseError && err.error ? JSON.parse(err.error)['.tag'] : 'Unknown error'
+      setError(`Error loading images. Please try again. (${errorMsg})`)
       console.error('Error loading images:', err)
     } finally {
       setLoading(false)
