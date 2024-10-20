@@ -13,7 +13,6 @@ export function DropboxGalleryComponent() {
   const [error, setError] = useState(null as string | null)
   const [hasMore, setHasMore] = useState(true)
 
-  
   const LIMIT = 3
   const imagesPathsRef = useRef([] as string[])
   let start = useRef(0).current
@@ -93,7 +92,7 @@ export function DropboxGalleryComponent() {
           {images.map((image, index) => (
             <div
               key={index}
-              className="w-full mb-8 p-2"
+              className="w-full p-2"
             >
               <div className="relative w-full">
                 <Image
