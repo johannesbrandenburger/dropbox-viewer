@@ -2,6 +2,8 @@
 
 This is a simple web application that allows you to view images from a Dropbox folder. It uses the Dropbox API to fetch the images and displays them in a scrollable gallery.
 
+I personally use this on holidays to share the pictures I take with my family and friends. With the dropbox app installed on my phone, it automatically uploads new pictures to a folder in my Dropbox account. My friends and family can visit a deployed version of this application and see the pictures in a social media-like gallery (feed).
+
 ## Setup
 
 To run this application, you need to create a Dropbox app and get an refresh token. You can follow the instructions [here](https://developers.dropbox.com/oauth-guide) to create an app. Then, you can get the a refresh token by visiting the following URL in your browser:
