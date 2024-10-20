@@ -2,112 +2,68 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
-import { Dropbox, DropboxResponseError, files } from 'dropbox'
+import { DropboxResponseError } from 'dropbox'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import InfiniteScroll from "react-infinite-scroll-component";
-import { getAccessToken } from '@/app/server-actions'
+import { getImagesPaths, getImageUrl } from '@/app/server-actions'
 
 export function DropboxGalleryComponent() {
-  const [images, setImages] = useState([] as { url: string, name: string }[])
+  const [images, setImages] = useState([] as { url: string }[])
   const [error, setError] = useState(null as string | null)
   const [hasMore, setHasMore] = useState(true)
 
-  let dbx = useRef(null as Dropbox | null).current
   
-  const limit = 3
-  const imagesMetadataRef = useRef([] as files.FileMetadata[])
+  const LIMIT = 3
+  const imagesPathsRef = useRef([] as string[])
   let start = useRef(0).current
 
   const loadImagesLazy = useCallback(async () => {
+    let end = start + LIMIT
+    if (end > imagesPathsRef.current.length) {
+      end = imagesPathsRef.current.length
+      setHasMore(false)
+    }
+    const imagesMetadata = imagesPathsRef.current.slice(start, end)
+    start = end
 
-    if (!hasMore) {
+    const images = await Promise.all(imagesMetadata.map(async image => {
+      const url = await getImageUrl(image as string)
+      return { url }
+    }))
+
+    setImages(prevImages => [...prevImages, ...images])
+  }, [])
+
+  let isInitialized = false
+
+  useEffect(() => {
+
+    if (isInitialized) {
       return
     }
 
-    if (imagesMetadataRef.current.length === 0) {
-      console.log("loadImagesMetadata")
-      await loadImagesMetadata()
-    }
-
-    try {
-      console.log("imagesMetadata", imagesMetadataRef.current)
-      const imagesMetadataCut = imagesMetadataRef.current.slice(start, start + limit)
-      start += limit
-      
-      console.log(`start: ${start}, limit: ${limit}, imagesMetadataCut: ${imagesMetadataCut.length}, total: ${imagesMetadataRef.current.length}`)
-
-      const imageUrls = await Promise.all(
-        imagesMetadataCut.map(async (file) => {
-          const response = await dbx?.filesGetTemporaryLink({ path: file.path_lower ?? '' })
-          console.log("response", response);
-          if (!response) {
-            throw new Error('Failed to get temporary link')
+    const fetchImages = async () => {
+      try {
+        const paths = await getImagesPaths()
+        imagesPathsRef.current = paths as string[]
+        loadImagesLazy()
+      } catch (error) {
+        if (error instanceof DropboxResponseError) {
+          if (error.error.error_summary === 'invalid_access_token') {
+            setError('Invalid access token. Please try again.')
+          } else {
+            setError('An error occurred. Please try again.')
           }
-          const result = response.result
-          return { url: result.link, name: file.name }
-        })
-      ) as { url: string, name: string }[]
-      setImages(prevImages => [...prevImages, ...imageUrls])
-      setHasMore(imagesMetadataRef.current.length > start)
-    } catch (err) {
-      const errorMsg = err instanceof DropboxResponseError && err.error ? JSON.parse(err.error)['.tag'] : 'Unknown error'
-      setError(`Error loading images. Please try again. (${errorMsg})`)
-      console.error('Error loading images:', err)
-    } finally {
-    }
-  }, [dbx])
-
-  const loadImagesMetadata = useCallback(async () => {
-    try {
-      let imageFiles = [] as files.FileMetadata[]
-      let metaCursor = null;
-
-      // get a access token by a refresh token
-      if (!dbx) {
-        const accessToken = await getAccessToken()
-        dbx = new Dropbox({ accessToken })
-      }
-
-      while (true) {
-        let response = null;
-        if (metaCursor === null) {
-          response = await dbx.filesListFolder({
-            path: process.env.NEXT_PUBLIC_DROPBOX_FOLDER_PATH ?? '',
-            limit: 20,
-          })
         } else {
-          response = await dbx.filesListFolderContinue({ cursor: metaCursor })
+          setError('An error occurred. Please try again.')
         }
-
-        const imageFilesI = response.result.entries.filter(
-          entry => entry['.tag'] === 'file' && entry.name.match(/\.(jpeg|jpg|png|gif)$/i)
-        ) as files.FileMetadata[]
-        imageFiles = [...imageFiles, ...imageFilesI]
-
-        if (!response.result.has_more) {
-          break
-        }
-
-        metaCursor = response.result.cursor
       }
-      imageFiles.sort((a, b) => a.client_modified > b.client_modified ? -1 : 1)
-      imagesMetadataRef.current = imageFiles
-    } catch (err) {
-      const errorMsg = err instanceof DropboxResponseError && err.error ? JSON.parse(err.error)['.tag'] : 'Unknown error'
-      setError(`Error loading images. Please try again. (${errorMsg})`)
-      console.error('Error loading images:', err)
-    } finally {
     }
-  }, [dbx])
 
-  const initialized = useRef(false)
-  useEffect(() => {
-    if (!initialized.current) {
-      loadImagesLazy()
-      initialized.current = true
-    }
-  })
+    isInitialized = true
+    fetchImages()
+  }, [])
 
   if (error) {
     return (
@@ -134,15 +90,15 @@ export function DropboxGalleryComponent() {
           loader={<div className="text-center">Loading...</div>}
           endMessage={<p className="text-center mt-8 text-gray-600">No more images to load</p>}
         >
-          {images.map(image => (
+          {images.map((image, index) => (
             <div
-              key={image.name}
+              key={index}
               className="w-full mb-8 p-2"
             >
               <div className="relative w-full">
                 <Image
                   src={image.url}
-                  alt={image.name}
+                  alt="Image"
                   width={640}
                   height={360}
                   layout="responsive"
