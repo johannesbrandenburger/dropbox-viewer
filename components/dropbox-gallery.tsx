@@ -6,6 +6,7 @@ import { Dropbox, DropboxResponseError, files } from 'dropbox'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import InfiniteScroll from "react-infinite-scroll-component";
 
 export function DropboxGalleryComponent() {
   const [images, setImages] = useState([] as { url: string, name: string }[])
@@ -24,7 +25,7 @@ export function DropboxGalleryComponent() {
   
   const limit = 3
   const imagesMetadataRef = useRef([] as files.FileMetadata[])
-  const [start, setStart] = useState(0)
+  let start = useRef(0).current
 
   const loadImagesLazy = useCallback(async () => {
 
@@ -40,7 +41,7 @@ export function DropboxGalleryComponent() {
     try {
       console.log("imagesMetadata", imagesMetadataRef.current)
       const imagesMetadataCut = imagesMetadataRef.current.slice(start, start + limit)
-      setStart(start + limit)
+      start += limit
       
       console.log(`start: ${start}, limit: ${limit}, imagesMetadataCut: ${imagesMetadataCut.length}, total: ${imagesMetadataRef.current.length}`)
 
@@ -152,43 +153,33 @@ export function DropboxGalleryComponent() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="space-y-8 max-w-3xl mx-auto">
-        {images.map((image, index) => (
-          <div
-            key={image.name}
-            className="w-full"
-          >
-            <div className="relative w-full">
-              <Image
-                src={image.url}
-                alt={image.name}
-                width={640}
-                height={360}
-                layout="responsive"
-                className="rounded-lg shadow-lg"
-                onLoad={() => {
-                  console.log(`Loading image ${index}...`);
-                  if (index === images.length - 1) {
-                    console.log(`Loading more images...`)
-                    loadImagesLazy()
-                  }
-                }}
-                onClick={() => window.open(image.url, '_blank')}
-              />
-            </div>
-          </div>
-        ))}
-        {loading && (
-          <div className="space-y-8">
-            {Array(2).fill(0).map((_, index) => (
-              <div key={index} className="w-full">
-                <Skeleton className="h-64 w-full rounded-lg" />
-                <Skeleton className="h-4 w-1/2 mt-2" />
+        <InfiniteScroll
+          dataLength={images.length}
+          next={loadImagesLazy}
+          hasMore={hasMore}
+          loader={<div className="text-center">Loading...</div>}
+          endMessage={<p className="text-center mt-8 text-gray-600">No more images to load</p>}
+        >
+          {images.map((image, index) => (
+            <div
+              key={image.name}
+              className="w-full mb-8 p-2"
+            >
+              <div className="relative w-full">
+                <Image
+                  src={image.url}
+                  alt={image.name}
+                  width={640}
+                  height={360}
+                  layout="responsive"
+                  className="rounded-lg shadow-lg"
+                  onClick={() => window.open(image.url, '_blank')}
+                />
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+        </InfiniteScroll>
       </div>
-      {!hasMore && <p className="text-center mt-8 text-gray-600">No more images to load</p>}
     </div>
   )
 }
